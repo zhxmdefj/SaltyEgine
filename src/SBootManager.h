@@ -19,7 +19,7 @@ public:
 	bool initGlfw() const;
 	bool initWindow(GLFWwindow* window);
 	void terminate();
-	void processInput(GLFWwindow* window);
+	//void processInput(GLFWwindow* window);
 
 private:
 

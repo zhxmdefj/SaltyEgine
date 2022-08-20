@@ -1,8 +1,5 @@
 #include "SBootManager.h"
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height);
-void processInput(GLFWwindow* window);
-
 bool SBootManager::initGlfw() const
 {
     // Init GLFW
@@ -30,7 +27,6 @@ bool SBootManager::initWindow(GLFWwindow* window)
     }
 
     glfwMakeContextCurrent(window);
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK)
@@ -49,15 +45,4 @@ bool SBootManager::initWindow(GLFWwindow* window)
 void SBootManager::terminate()
 {
     glfwTerminate();
-}
-
-void SBootManager::processInput(GLFWwindow* window)
-{
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
-}
-
-void framebuffer_size_callback(GLFWwindow* window, int width, int height)
-{
-    glViewport(0, 0, width, height);
 }
