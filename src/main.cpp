@@ -6,6 +6,7 @@
 
 #include "SBootManager.h"
 #include "SShader.h"
+#include "SFileSystem.h"
 
 #define STB_IMAGE_IMPLEMENTATION
 #include "stb_image.h"
@@ -13,6 +14,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
+
 
 
 const GLuint WIDTH = 800;
@@ -26,16 +28,12 @@ int main()
     bootManager.initWindow(window);
 
     SShader normalShader(
-        "../../../../res/shader/shader.vert", 
-        "../../../../res/shader/shader.frag");
+        SFileSystem::getPath("res/shader/shader.vert").c_str(),
+        SFileSystem::getPath("res/shader/shader.frag").c_str());
 
     unsigned int indices[] = {
-        // 注意索引从0开始! 
-        // 此例的索引(0,1,2,3)就是顶点数组vertices的下标，
-        // 这样可以由下标代表顶点组合成矩形
-
-        0, 1, 3, // 第一个三角形
-        1, 2, 3  // 第二个三角形
+        0, 1, 3, 
+        1, 2, 3  
     };
 
     float vertices[] = {
@@ -115,7 +113,7 @@ int main()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    data = stbi_load("../../../../res/texture/container.jpg", &width, &height, &nrChannels, 0);
+    data = stbi_load(SFileSystem::getPath("res/texture/container.jpg").c_str(), &width, &height, &nrChannels, 0);
     if (data)
     {
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
@@ -133,7 +131,7 @@ int main()
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    data = stbi_load("../../../../res/texture/awesomeface.png", &width, &height, &nrChannels, 0);
+    data = stbi_load(SFileSystem::getPath("res/texture/awesomeface.png").c_str(), &width, &height, &nrChannels, 0);
     if (data)
     {
         // note that the awesomeface.png has transparency and thus an alpha channel, so make sure to tell OpenGL the data type is of GL_RGBA
@@ -163,7 +161,6 @@ int main()
         // Render
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
 
         // create transformations
         glm::mat4 model = glm::mat4(1.0f); // make sure to initialize matrix to identity matrix first
