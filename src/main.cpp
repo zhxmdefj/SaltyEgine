@@ -154,7 +154,23 @@ int main()
         glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-        
+        unsigned int CubeUniformBlockIndex = glGetUniformBlockIndex(cubeShader.ID, "Matrices");
+        unsigned int LghtUniformBlockIndex = glGetUniformBlockIndex(lightShader.ID, "Matrices");
+        glUniformBlockBinding(cubeShader.ID, CubeUniformBlockIndex, 0);
+        glUniformBlockBinding(lightShader.ID, LghtUniformBlockIndex, 0);
+
+        unsigned int uboMatrices;
+        glGenBuffers(1, &uboMatrices);
+        glBindBuffer(GL_UNIFORM_BUFFER, uboMatrices);
+        glBufferData(GL_UNIFORM_BUFFER, 2 * sizeof(glm::mat4), NULL, GL_STATIC_DRAW);
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+        glBindBufferRange(GL_UNIFORM_BUFFER, 0, uboMatrices, 0, 2 * sizeof(glm::mat4));
+
+        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
+        glBindBuffer(GL_UNIFORM_BUFFER, uboMatrices);
+        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::mat4), glm::value_ptr(projection));
+        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
         {
             cubeShader.use();
             glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
@@ -174,25 +190,23 @@ int main()
             cubeShader.setVec3("material.specular", 0.5f, 0.5f, 0.5f);
             cubeShader.setFloat("material.shininess", 32.0f);
 
-            glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
             glm::mat4 view = camera.GetViewMatrix();
-            glm::mat4 model = glm::mat4(1.0f);
-            cubeShader.setMat4("projection", projection);
-            cubeShader.setMat4("view", view);
-            model = glm::rotate(model, (float)glfwGetTime(), glm::vec3(0.5f, 1.0f, 0.0f));
-            cubeShader.setMat4("model", model);
+            glBindBuffer(GL_UNIFORM_BUFFER, uboMatrices);
+            glBufferSubData(GL_UNIFORM_BUFFER, sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(view));
+            glBindBuffer(GL_UNIFORM_BUFFER, 0);
+
+            glm::mat4 cubeModel = glm::mat4(1.0f);
+            cubeModel = glm::rotate(cubeModel, (float)glfwGetTime(), glm::vec3(0.5f, 1.0f, 0.0f));
+            cubeShader.setMat4("model", cubeModel);
 
             glBindVertexArray(cubeVAO);
             glDrawArrays(GL_TRIANGLES, 0, 36);
 
-
             lightShader.use();
-            lightShader.setMat4("projection", projection);
-            lightShader.setMat4("view", view);
-            model = glm::mat4(1.0f);
-            model = glm::translate(model, lightPos);
-            model = glm::scale(model, glm::vec3(0.2f));
-            lightShader.setMat4("model", model);
+            glm::mat4 lightModel = glm::mat4(1.0f);
+            lightModel = glm::translate(lightModel, lightPos);
+            lightModel = glm::scale(lightModel, glm::vec3(0.2f));
+            lightShader.setMat4("model", lightModel);
 
             glBindVertexArray(lightVAO);
             glDrawArrays(GL_TRIANGLES, 0, 36);
