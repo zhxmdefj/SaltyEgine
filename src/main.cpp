@@ -1,4 +1,10 @@
-#include <iostream>
+﻿#include <iostream>
+#include <string>
+#include <sstream>
+#include <vector>
+#include <iosfwd>
+#include <algorithm>
+#include <iomanip>
 
 #define GLEW_STATIC
 #include <GL/glew.h>
@@ -13,9 +19,12 @@
 #include "SFileSystem.h"
 #include "SCamera.h"
 #include "STexture.h"
+#include "utils.h"
+#include "hdrloader.h"
+#include "RenderPass.h"
 
-const GLuint WIDTH = 1280;
-const GLuint HEIGHT = 720;
+const GLuint WIDTH = 512;
+const GLuint HEIGHT = 512;
 
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
@@ -34,237 +43,311 @@ float lastX = WIDTH / 2.0f;
 float lastY = HEIGHT / 2.0f;
 bool firstMouse = true;
 
+// 绘制
+clock_t t1, t2;
+double dt, fps;
+unsigned int frameCounter = 0;
+
+// 相机参数
+float upAngle = 0.0;
+float rotatAngle = 0.0;
+float r = 4.0;
+
 int main()
 {
-    SBootManager& bootManager = SBootManager::getInstance();
-    bootManager.initGlfw();
-    GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "LearnOpenGL", nullptr, nullptr);
-    bootManager.initWindow(window);
+	SBootManager& bootManager = SBootManager::getInstance();
+	bootManager.initGlfw();
+	GLFWwindow* window = glfwCreateWindow(WIDTH, HEIGHT, "LearnOpenGL", nullptr, nullptr);
+	bootManager.initWindow(window);
 
-    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
-    glfwSetCursorPosCallback(window, mouse_callback);
-    glfwSetScrollCallback(window, scroll_callback);
+	glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
+	glfwSetCursorPosCallback(window, mouse_callback);
+	glfwSetScrollCallback(window, scroll_callback);
 
-    SShader cubeShader(
-        SFileSystem::getPath("res/shader/shader.vs").c_str(),
-        SFileSystem::getPath("res/shader/shader.fs").c_str());
+	// scene config
+	std::vector<Triangle> triangles;
 
-    SShader lightShader(
-        SFileSystem::getPath("res/shader/light.vs").c_str(),
-        SFileSystem::getPath("res/shader/light.fs").c_str());
+	Material m;
 
-    //unsigned int indices[] = {
-    //    0, 1, 3,
-    //    1, 2, 3
-    //};
+	//金属球
+	m.baseColor = vec3(0.8, 0.8, 0.8);
+	m.roughness = 0.15;
+	m.metallic = 1.0;
+	m.clearcoat = 1.0;
 
-    float vertices[] = {
-        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-         0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-         0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+	readObj(SFileSystem::getPath("res/models/sphere2.obj"), triangles, m, getTransformMatrix(vec3(0, 0, 0), vec3(0.5, 0, 0), vec3(0.75, 0.75, 0.75)), true);
 
-        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-         0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+	//非金属
+	m.baseColor = vec3(1, 0.5, 0.5);
+	m.roughness = 0.1;
+	m.metallic = 0.0;
+	m.clearcoat = 1.0;
+	m.subsurface = 1.0;
+	m.clearcoatGloss = 0.05;
+	readObj(SFileSystem::getPath("res/models/sphere2.obj"), triangles, m, getTransformMatrix(vec3(0, 0, 0), vec3(-0.5, 0, 0), vec3(0.75, 0.75, 0.75)), true);
 
-        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-        -0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+	//光源
+	m.baseColor = WHITE;
+	m.emissive = vec3(50, 50, 50);
+	readObj(SFileSystem::getPath("res/models/quad.obj"), triangles, m, getTransformMatrix(vec3(0, 0, 0), vec3(0.0, 2.5, 0.0), vec3(1, 0.01, 1)), false);
 
-         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-         0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+	int nTriangles = triangles.size();
+	std::cout << "模型读取完成: 共 " << nTriangles << " 个三角形" << std::endl;
 
-        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-         0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-         0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-        -0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-        -0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+	// ----------------------------------------------------------------------------- //
 
-        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
-         0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-         0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-        -0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-        -0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f
-    };
+	// 建立 bvh
+	BVHNode testNode;
+	testNode.left = 255;
+	testNode.right = 128;
+	testNode.n = 30;
+	testNode.AA = vec3(1, 1, 0);
+	testNode.BB = vec3(0, 1, 0);
+	std::vector<BVHNode> nodes{ testNode };
+	//buildBVH(triangles, nodes, 0, triangles.size() - 1, 8);
+	buildBVHwithSAH(triangles, nodes, 0, triangles.size() - 1, 8);
+	int nNodes = nodes.size();
+	std::cout << "BVH 建立完成: 共 " << nNodes << " 个节点" << std::endl;
 
-    //unsigned int EBO;
-    //glGenBuffers(1, &EBO);
-    //glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, EBO);
-    //glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+	// 编码 三角形, 材质
+	std::vector<Triangle_encoded> triangles_encoded(nTriangles);
+	for (int i = 0; i < nTriangles; i++) {
+		Triangle& t = triangles[i];
+		Material& m = t.material;
+		// 顶点位置
+		triangles_encoded[i].p1 = t.p1;
+		triangles_encoded[i].p2 = t.p2;
+		triangles_encoded[i].p3 = t.p3;
+		// 顶点法线
+		triangles_encoded[i].n1 = t.n1;
+		triangles_encoded[i].n2 = t.n2;
+		triangles_encoded[i].n3 = t.n3;
+		// 材质
+		triangles_encoded[i].emissive = m.emissive;
+		triangles_encoded[i].baseColor = m.baseColor;
+		triangles_encoded[i].param1 = vec3(m.subsurface, m.metallic, m.specular);
+		triangles_encoded[i].param2 = vec3(m.specularTint, m.roughness, m.anisotropic);
+		triangles_encoded[i].param3 = vec3(m.sheen, m.sheenTint, m.clearcoat);
+		triangles_encoded[i].param4 = vec3(m.clearcoatGloss, m.IOR, m.transmission);
+	}
 
-    unsigned int VBO;
-    glGenBuffers(1, &VBO);
+	// 编码 BVHNode, aabb
+	std::vector<BVHNode_encoded> nodes_encoded(nNodes);
+	for (int i = 0; i < nNodes; i++) {
+		nodes_encoded[i].childs = vec3(nodes[i].left, nodes[i].right, 0);
+		nodes_encoded[i].leafInfo = vec3(nodes[i].n, nodes[i].index, 0);
+		nodes_encoded[i].AA = nodes[i].AA;
+		nodes_encoded[i].BB = nodes[i].BB;
+	}
 
-    unsigned int cubeVAO;
-    glGenVertexArrays(1, &cubeVAO);
-    glBindVertexArray(cubeVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)(3 * sizeof(float)));
-    glEnableVertexAttribArray(1);
+	// ----------------------------------------------------------------------------- //
 
-    unsigned int lightVAO;
-    glGenVertexArrays(1, &lightVAO);
-    glBindVertexArray(lightVAO);
-    glBindBuffer(GL_ARRAY_BUFFER, VBO);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 6 * sizeof(float), (void*)0);
-    glEnableVertexAttribArray(0);
+	GLuint trianglesTextureBuffer;
+	GLuint bvhNodesTextureBuffer;
+	GLuint lastFrame;
+	GLuint hdrMap;
 
-    STexture texture1(SFileSystem::getPath("res/texture/container.jpg").c_str(), GL_RGB);
-    STexture texture2(SFileSystem::getPath("res/texture/awesomeface.png").c_str(), GL_RGBA);
+	RenderPass pass1;
+	RenderPass pass2;
+	RenderPass pass3;
 
-    glActiveTexture(GL_TEXTURE0);
-    glBindTexture(GL_TEXTURE_2D, texture1.ID);
-    glActiveTexture(GL_TEXTURE1);
-    glBindTexture(GL_TEXTURE_2D, texture2.ID);
+	// 三角形数组
+	GLuint tbo0;
+	glGenBuffers(1, &tbo0);
+	glBindBuffer(GL_TEXTURE_BUFFER, tbo0);
+	glBufferData(GL_TEXTURE_BUFFER, triangles_encoded.size() * sizeof(Triangle_encoded), &triangles_encoded[0], GL_STATIC_DRAW);
+	glGenTextures(1, &trianglesTextureBuffer);
+	glBindTexture(GL_TEXTURE_BUFFER, trianglesTextureBuffer);
+	glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, tbo0);
 
-    //cubeShader.use();
-    //cubeShader.setInt("ourTexture", 1);
+	// BVHNode 数组
+	GLuint nbo0;
+	glGenBuffers(1, &nbo0);
+	glBindBuffer(GL_TEXTURE_BUFFER, nbo0);
+	glBufferData(GL_TEXTURE_BUFFER, nodes_encoded.size() * sizeof(BVHNode_encoded), &nodes_encoded[0], GL_STATIC_DRAW);
+	glGenTextures(1, &bvhNodesTextureBuffer);
+	glBindTexture(GL_TEXTURE_BUFFER, bvhNodesTextureBuffer);
+	glTexBuffer(GL_TEXTURE_BUFFER, GL_RGB32F, nbo0);
 
-    glEnable(GL_DEPTH_TEST);
+	// hdr 全景图
+	HDRLoaderResult hdrRes;
+	bool r = HDRLoader::load(SFileSystem::getPath("res/texture/circus_arena_4k.hdr").c_str(), hdrRes);
+	hdrMap = getTextureRGB32F(hdrRes.width, hdrRes.height);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, hdrRes.width, hdrRes.height, 0, GL_RGB, GL_FLOAT, hdrRes.cols);
 
-    while (!glfwWindowShouldClose(window))
-    {
+	SShader shader1(
+		SFileSystem::getPath("res/shader/vshader.vert").c_str(),
+		SFileSystem::getPath("res/shader/fshader.frag").c_str());
+	SShader shader2(
+		SFileSystem::getPath("res/shader/vshader.vert").c_str(),
+		SFileSystem::getPath("res/shader/pass2.frag").c_str());
+	SShader shader3(
+		SFileSystem::getPath("res/shader/vshader.vert").c_str(),
+		SFileSystem::getPath("res/shader/pass3.frag").c_str());
 
-        float currentFrame = glfwGetTime();
-        deltaTime = currentFrame - lastFrame;
-        lastFrame = currentFrame;
+	pass1.program = shader1.ID;
+	pass1.colorAttachments.push_back(getTextureRGB32F(pass1.width, pass1.height));
+	pass1.colorAttachments.push_back(getTextureRGB32F(pass1.width, pass1.height));
+	pass1.colorAttachments.push_back(getTextureRGB32F(pass1.width, pass1.height));
+	pass1.bindData();
 
-        //bootManager.processInput(window);
-        processInput(window);
+	glUseProgram(pass1.program);
+	glUniform1i(glGetUniformLocation(pass1.program, "nTriangles"), triangles.size());
+	glUniform1i(glGetUniformLocation(pass1.program, "nNodes"), nodes.size());
+	glUniform1i(glGetUniformLocation(pass1.program, "width"), pass1.width);
+	glUniform1i(glGetUniformLocation(pass1.program, "height"), pass1.height);
+	glUseProgram(0);
 
-        // Render
-        glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+	pass2.program = shader2.ID;
+	lastFrame = getTextureRGB32F(pass2.width, pass2.height);
+	pass2.colorAttachments.push_back(lastFrame);
+	pass2.bindData();
 
-        unsigned int CubeUniformBlockIndex = glGetUniformBlockIndex(cubeShader.ID, "Matrices");
-        unsigned int LghtUniformBlockIndex = glGetUniformBlockIndex(lightShader.ID, "Matrices");
-        glUniformBlockBinding(cubeShader.ID, CubeUniformBlockIndex, 0);
-        glUniformBlockBinding(lightShader.ID, LghtUniformBlockIndex, 0);
+	pass3.program = shader3.ID;
+	pass3.bindData(true);
 
-        unsigned int uboMatrices;
-        glGenBuffers(1, &uboMatrices);
-        glBindBuffer(GL_UNIFORM_BUFFER, uboMatrices);
-        glBufferData(GL_UNIFORM_BUFFER, 2 * sizeof(glm::mat4), NULL, GL_STATIC_DRAW);
-        glBindBuffer(GL_UNIFORM_BUFFER, 0);
-        glBindBufferRange(GL_UNIFORM_BUFFER, 0, uboMatrices, 0, 2 * sizeof(glm::mat4));
+	// ----------------------------------------------------------------------------- //
 
-        glm::mat4 projection = glm::perspective(glm::radians(camera.Zoom), (float)WIDTH / (float)HEIGHT, 0.1f, 100.0f);
-        glBindBuffer(GL_UNIFORM_BUFFER, uboMatrices);
-        glBufferSubData(GL_UNIFORM_BUFFER, 0, sizeof(glm::mat4), glm::value_ptr(projection));
-        glBindBuffer(GL_UNIFORM_BUFFER, 0);
+	std::cout << "开始..." << std::endl << std::endl;
 
-        {
-            cubeShader.use();
-            glm::vec3 lightPos(1.2f, 1.0f, 2.0f);
-            cubeShader.setVec3("light.position", lightPos);
-            cubeShader.setVec3("viewPos", camera.Position);
-            glm::vec3 lightColor;
-            lightColor.x = sin(glfwGetTime() * 2.0f);
-            lightColor.y = sin(glfwGetTime() * 0.7f);
-            lightColor.z = sin(glfwGetTime() * 1.3f);
-            glm::vec3 diffuseColor = lightColor * glm::vec3(0.5f);
-            glm::vec3 ambientColor = diffuseColor * glm::vec3(0.2f);
-            cubeShader.setVec3("light.ambient", ambientColor);
-            cubeShader.setVec3("light.diffuse", diffuseColor);
-            cubeShader.setVec3("light.specular", 1.0f, 1.0f, 1.0f);
-            cubeShader.setVec3("material.ambient", 1.0f, 0.5f, 0.31f);
-            cubeShader.setVec3("material.diffuse", 1.0f, 0.5f, 0.31f);
-            cubeShader.setVec3("material.specular", 0.5f, 0.5f, 0.5f);
-            cubeShader.setFloat("material.shininess", 32.0f);
+	float vertices[] = {
+		-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+		 0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+		 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+		 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+		-0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
+		-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
 
-            glm::mat4 view = camera.GetViewMatrix();
-            glBindBuffer(GL_UNIFORM_BUFFER, uboMatrices);
-            glBufferSubData(GL_UNIFORM_BUFFER, sizeof(glm::mat4), sizeof(glm::mat4), glm::value_ptr(view));
-            glBindBuffer(GL_UNIFORM_BUFFER, 0);
+		-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+		 0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+		 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+		 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+		-0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
+		-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
 
-            glm::mat4 cubeModel = glm::mat4(1.0f);
-            cubeModel = glm::rotate(cubeModel, (float)glfwGetTime(), glm::vec3(0.5f, 1.0f, 0.0f));
-            cubeShader.setMat4("model", cubeModel);
+		-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+		-0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+		-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+		-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
+		-0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
+		-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
 
-            glBindVertexArray(cubeVAO);
-            glDrawArrays(GL_TRIANGLES, 0, 36);
+		 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+		 0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+		 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+		 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
+		 0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
+		 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
 
-            lightShader.use();
-            glm::mat4 lightModel = glm::mat4(1.0f);
-            lightModel = glm::translate(lightModel, lightPos);
-            lightModel = glm::scale(lightModel, glm::vec3(0.2f));
-            lightShader.setMat4("model", lightModel);
+		-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+		 0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
+		 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+		 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+		-0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
+		-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
 
-            glBindVertexArray(lightVAO);
-            glDrawArrays(GL_TRIANGLES, 0, 36);
-        }
+		-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+		 0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
+		 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+		 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+		-0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
+		-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f
+	};
 
+	glEnable(GL_DEPTH_TEST);            // 开启深度测试
+	glClearColor(0.0, 0.0, 0.0, 1.0);   // 背景颜色 -- 黑
 
-        glfwSwapBuffers(window);
-        glfwPollEvents();
-    }
+	while (!glfwWindowShouldClose(window))
+	{
+		// 帧计时
+		t2 = clock();
+		dt = (double)(t2 - t1) / CLOCKS_PER_SEC;
+		fps = 1.0 / dt;
+		std::cout << "\r";
+		std::cout << std::fixed << std::setprecision(2) << "FPS : " << fps << "    迭代次数: " << frameCounter;
+		t1 = t2;
 
-    glDeleteVertexArrays(1, &cubeVAO);
-    glDeleteVertexArrays(1, &lightVAO);
-    glDeleteBuffers(1, &VBO);
+		// 相机参数
+		vec3 eye = vec3(-sin(radians(rotatAngle)) * cos(radians(upAngle)), sin(radians(upAngle)), cos(radians(rotatAngle)) * cos(radians(upAngle)));
+		eye.x *= r; eye.y *= r; eye.z *= r;
+		mat4 cameraRotate = lookAt(eye, vec3(0, 0, 0), vec3(0, 1, 0));  // 相机注视着原点
+		cameraRotate = inverse(cameraRotate);   // lookat 的逆矩阵将光线方向进行转换
 
-    bootManager.terminate();
+		// 传 uniform 给 pass1
+		glUseProgram(pass1.program);
+		glUniform3fv(glGetUniformLocation(pass1.program, "eye"), 1, value_ptr(eye));
+		glUniformMatrix4fv(glGetUniformLocation(pass1.program, "cameraRotate"), 1, GL_FALSE, value_ptr(cameraRotate));
+		glUniform1ui(glGetUniformLocation(pass1.program, "frameCounter"), frameCounter++);// 传计数器用作随机种子
 
-    return 0;
+		glActiveTexture(GL_TEXTURE0);
+		glBindTexture(GL_TEXTURE_BUFFER, trianglesTextureBuffer);
+		glUniform1i(glGetUniformLocation(pass1.program, "triangles"), 0);
+
+		glActiveTexture(GL_TEXTURE1);
+		glBindTexture(GL_TEXTURE_BUFFER, bvhNodesTextureBuffer);
+		glUniform1i(glGetUniformLocation(pass1.program, "nodes"), 1);
+
+		glActiveTexture(GL_TEXTURE2);
+		glBindTexture(GL_TEXTURE_2D, lastFrame);
+		glUniform1i(glGetUniformLocation(pass1.program, "lastFrame"), 2);
+
+		glActiveTexture(GL_TEXTURE3);
+		glBindTexture(GL_TEXTURE_2D, hdrMap);
+		glUniform1i(glGetUniformLocation(pass1.program, "hdrMap"), 3);
+
+		// 绘制
+		pass1.draw();
+		pass2.draw(pass1.colorAttachments);
+		pass3.draw(pass2.colorAttachments);
+
+		glfwSwapBuffers(window);
+		glfwPollEvents();
+	}
+
+	bootManager.terminate();
+
+	return 0;
 }
 
 void processInput(GLFWwindow* window)
 {
-    if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, true);
+	if (glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS)
+		glfwSetWindowShouldClose(window, true);
 
-    if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-        camera.ProcessKeyboard(FORWARD, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-        camera.ProcessKeyboard(BACKWARD, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-        camera.ProcessKeyboard(LEFT, deltaTime);
-    if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-        camera.ProcessKeyboard(RIGHT, deltaTime);
+	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
+		camera.ProcessKeyboard(FORWARD, deltaTime);
+	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
+		camera.ProcessKeyboard(BACKWARD, deltaTime);
+	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
+		camera.ProcessKeyboard(LEFT, deltaTime);
+	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
+		camera.ProcessKeyboard(RIGHT, deltaTime);
 }
 
 void framebuffer_size_callback(GLFWwindow* window, int width, int height)
 {
-    glViewport(0, 0, width, height);
+	glViewport(0, 0, width, height);
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 {
-    if (firstMouse)
-    {
-        lastX = xpos;
-        lastY = ypos;
-        firstMouse = false;
-    }
+	if (firstMouse)
+	{
+		lastX = xpos;
+		lastY = ypos;
+		firstMouse = false;
+	}
 
-    float xoffset = xpos - lastX;
-    float yoffset = lastY - ypos;
+	float xoffset = xpos - lastX;
+	float yoffset = lastY - ypos;
 
-    lastX = xpos;
-    lastY = ypos;
+	lastX = xpos;
+	lastY = ypos;
 
-    camera.ProcessMouseMovement(xoffset, yoffset);
+	camera.ProcessMouseMovement(xoffset, yoffset);
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
-    camera.ProcessMouseScroll(yoffset);
+	camera.ProcessMouseScroll(yoffset);
 }

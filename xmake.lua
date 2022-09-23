@@ -5,7 +5,7 @@ add_rules("mode.debug", "mode.release")
 add_requires("glew", "glfw", "glm", "glad")
 
 set_warnings("all")
-set_languages("cxx20")
+set_languages("cxx11")
 
 -- xmake project -k vsxmake
 

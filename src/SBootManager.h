@@ -1,11 +1,10 @@
-#pragma once
+﻿#pragma once
 
 #include <iostream>
 
 #define GLEW_STATIC
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-
 
 class SBootManager
 {
@@ -26,5 +25,4 @@ private:
 	SBootManager() = default;
 	SBootManager(const SBootManager& other) = delete;
 	SBootManager& operator=(const SBootManager&) = delete;
-
 };

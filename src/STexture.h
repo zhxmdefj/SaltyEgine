@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <iostream>
 
@@ -33,7 +33,7 @@ public:
 
 private:
 	int width = -1;
-	int height = -1; 
+	int height = -1;
 	int nrChannels = -1;
 	unsigned char* data = nullptr;
 };
