@@ -35,9 +35,9 @@ bool SBootManager::initWindow(GLFWwindow* window)
 		return false;
 	}
 
-	int width, height;
-	glfwGetFramebufferSize(window, &width, &height);
-	glViewport(0, 0, width, height);
+	int m_width, m_height;
+	glfwGetFramebufferSize(window, &m_width, &m_height);
+	glViewport(0, 0, m_width, m_height);
 
 	return true;
 }

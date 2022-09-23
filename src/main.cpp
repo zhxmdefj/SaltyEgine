@@ -23,8 +23,8 @@
 #include "hdrloader.h"
 #include "RenderPass.h"
 
-const GLuint WIDTH = 512;
-const GLuint HEIGHT = 512;
+const GLuint WIDTH = 1280;
+const GLuint HEIGHT = 1280;
 
 glm::vec3 cameraPos = glm::vec3(0.0f, 0.0f, 3.0f);
 glm::vec3 cameraFront = glm::vec3(0.0f, 0.0f, -1.0f);
@@ -33,12 +33,12 @@ glm::vec3 cameraUp = glm::vec3(0.0f, 1.0f, 0.0f);
 float deltaTime = 0.0f;
 float lastFrame = 0.0f;
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height);
+void framebuffer_size_callback(GLFWwindow* window, int m_width, int m_height);
 void mouse_callback(GLFWwindow* window, double xpos, double ypos);
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset);
 void processInput(GLFWwindow* window);
 
-SCamera camera(glm::vec3(0.0f, 0.0f, 10.0f));
+SCamera mainCamera(glm::vec3(0.0f, 0.0f, 10.0f));
 float lastX = WIDTH / 2.0f;
 float lastY = HEIGHT / 2.0f;
 bool firstMouse = true;
@@ -147,9 +147,9 @@ int main()
 	GLuint lastFrame;
 	GLuint hdrMap;
 
-	RenderPass pass1;
-	RenderPass pass2;
-	RenderPass pass3;
+	RenderPass pass1(WIDTH, HEIGHT);
+	RenderPass pass2(WIDTH, HEIGHT);
+	RenderPass pass3(WIDTH, HEIGHT);
 
 	// 三角形数组
 	GLuint tbo0;
@@ -172,8 +172,8 @@ int main()
 	// hdr 全景图
 	HDRLoaderResult hdrRes;
 	bool r = HDRLoader::load(SFileSystem::getPath("res/texture/circus_arena_4k.hdr").c_str(), hdrRes);
-	hdrMap = getTextureRGB32F(hdrRes.width, hdrRes.height);
-	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, hdrRes.width, hdrRes.height, 0, GL_RGB, GL_FLOAT, hdrRes.cols);
+	hdrMap = getTextureRGB32F(hdrRes.m_width, hdrRes.m_height);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB32F, hdrRes.m_width, hdrRes.m_height, 0, GL_RGB, GL_FLOAT, hdrRes.cols);
 
 	SShader shader1(
 		SFileSystem::getPath("res/shader/vshader.vert").c_str(),
@@ -185,74 +185,30 @@ int main()
 		SFileSystem::getPath("res/shader/vshader.vert").c_str(),
 		SFileSystem::getPath("res/shader/pass3.frag").c_str());
 
-	pass1.program = shader1.ID;
-	pass1.colorAttachments.push_back(getTextureRGB32F(pass1.width, pass1.height));
-	pass1.colorAttachments.push_back(getTextureRGB32F(pass1.width, pass1.height));
-	pass1.colorAttachments.push_back(getTextureRGB32F(pass1.width, pass1.height));
+	pass1.m_shaderProgram = shader1.ID;
+	pass1.m_colorAttachments.push_back(getTextureRGB32F(pass1.m_width, pass1.m_height));
+	pass1.m_colorAttachments.push_back(getTextureRGB32F(pass1.m_width, pass1.m_height));
+	pass1.m_colorAttachments.push_back(getTextureRGB32F(pass1.m_width, pass1.m_height));
 	pass1.bindData();
 
-	glUseProgram(pass1.program);
-	glUniform1i(glGetUniformLocation(pass1.program, "nTriangles"), triangles.size());
-	glUniform1i(glGetUniformLocation(pass1.program, "nNodes"), nodes.size());
-	glUniform1i(glGetUniformLocation(pass1.program, "width"), pass1.width);
-	glUniform1i(glGetUniformLocation(pass1.program, "height"), pass1.height);
+	glUseProgram(pass1.m_shaderProgram);
+	glUniform1i(glGetUniformLocation(pass1.m_shaderProgram, "nTriangles"), triangles.size());
+	glUniform1i(glGetUniformLocation(pass1.m_shaderProgram, "nNodes"), nodes.size());
+	glUniform1i(glGetUniformLocation(pass1.m_shaderProgram, "width"), pass1.m_width);
+	glUniform1i(glGetUniformLocation(pass1.m_shaderProgram, "height"), pass1.m_height);
 	glUseProgram(0);
 
-	pass2.program = shader2.ID;
-	lastFrame = getTextureRGB32F(pass2.width, pass2.height);
-	pass2.colorAttachments.push_back(lastFrame);
+	pass2.m_shaderProgram = shader2.ID;
+	lastFrame = getTextureRGB32F(pass2.m_width, pass2.m_height);
+	pass2.m_colorAttachments.push_back(lastFrame);
 	pass2.bindData();
 
-	pass3.program = shader3.ID;
+	pass3.m_shaderProgram = shader3.ID;
 	pass3.bindData(true);
 
 	// ----------------------------------------------------------------------------- //
 
 	std::cout << "开始..." << std::endl << std::endl;
-
-	float vertices[] = {
-		-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-		 0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-		 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-		 0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-		-0.5f,  0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-		-0.5f, -0.5f, -0.5f,  0.0f,  0.0f, -1.0f,
-
-		-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-		 0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-		 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-		 0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-		-0.5f,  0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-		-0.5f, -0.5f,  0.5f,  0.0f,  0.0f,  1.0f,
-
-		-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-		-0.5f,  0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-		-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-		-0.5f, -0.5f, -0.5f, -1.0f,  0.0f,  0.0f,
-		-0.5f, -0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-		-0.5f,  0.5f,  0.5f, -1.0f,  0.0f,  0.0f,
-
-		 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-		 0.5f,  0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-		 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-		 0.5f, -0.5f, -0.5f,  1.0f,  0.0f,  0.0f,
-		 0.5f, -0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-		 0.5f,  0.5f,  0.5f,  1.0f,  0.0f,  0.0f,
-
-		-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-		 0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-		 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-		 0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-		-0.5f, -0.5f,  0.5f,  0.0f, -1.0f,  0.0f,
-		-0.5f, -0.5f, -0.5f,  0.0f, -1.0f,  0.0f,
-
-		-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
-		 0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f,
-		 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-		 0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-		-0.5f,  0.5f,  0.5f,  0.0f,  1.0f,  0.0f,
-		-0.5f,  0.5f, -0.5f,  0.0f,  1.0f,  0.0f
-	};
 
 	glEnable(GL_DEPTH_TEST);            // 开启深度测试
 	glClearColor(0.0, 0.0, 0.0, 1.0);   // 背景颜色 -- 黑
@@ -267,38 +223,35 @@ int main()
 		std::cout << std::fixed << std::setprecision(2) << "FPS : " << fps << "    迭代次数: " << frameCounter;
 		t1 = t2;
 
-		// 相机参数
-		vec3 eye = vec3(-sin(radians(rotatAngle)) * cos(radians(upAngle)), sin(radians(upAngle)), cos(radians(rotatAngle)) * cos(radians(upAngle)));
-		eye.x *= r; eye.y *= r; eye.z *= r;
-		mat4 cameraRotate = lookAt(eye, vec3(0, 0, 0), vec3(0, 1, 0));  // 相机注视着原点
-		cameraRotate = inverse(cameraRotate);   // lookat 的逆矩阵将光线方向进行转换
+		mat4 cameraRotate = mainCamera.GetViewMatrix();
+		cameraRotate = inverse(cameraRotate);
 
 		// 传 uniform 给 pass1
-		glUseProgram(pass1.program);
-		glUniform3fv(glGetUniformLocation(pass1.program, "eye"), 1, value_ptr(eye));
-		glUniformMatrix4fv(glGetUniformLocation(pass1.program, "cameraRotate"), 1, GL_FALSE, value_ptr(cameraRotate));
-		glUniform1ui(glGetUniformLocation(pass1.program, "frameCounter"), frameCounter++);// 传计数器用作随机种子
+		glUseProgram(pass1.m_shaderProgram);
+		glUniform3fv(glGetUniformLocation(pass1.m_shaderProgram, "eye"), 1, value_ptr(mainCamera.Position));
+		glUniformMatrix4fv(glGetUniformLocation(pass1.m_shaderProgram, "cameraRotate"), 1, GL_FALSE, value_ptr(cameraRotate));
+		glUniform1ui(glGetUniformLocation(pass1.m_shaderProgram, "frameCounter"), frameCounter++);// 传计数器用作随机种子
 
 		glActiveTexture(GL_TEXTURE0);
 		glBindTexture(GL_TEXTURE_BUFFER, trianglesTextureBuffer);
-		glUniform1i(glGetUniformLocation(pass1.program, "triangles"), 0);
+		glUniform1i(glGetUniformLocation(pass1.m_shaderProgram, "triangles"), 0);
 
 		glActiveTexture(GL_TEXTURE1);
 		glBindTexture(GL_TEXTURE_BUFFER, bvhNodesTextureBuffer);
-		glUniform1i(glGetUniformLocation(pass1.program, "nodes"), 1);
+		glUniform1i(glGetUniformLocation(pass1.m_shaderProgram, "nodes"), 1);
 
 		glActiveTexture(GL_TEXTURE2);
 		glBindTexture(GL_TEXTURE_2D, lastFrame);
-		glUniform1i(glGetUniformLocation(pass1.program, "lastFrame"), 2);
+		glUniform1i(glGetUniformLocation(pass1.m_shaderProgram, "lastFrame"), 2);
 
 		glActiveTexture(GL_TEXTURE3);
 		glBindTexture(GL_TEXTURE_2D, hdrMap);
-		glUniform1i(glGetUniformLocation(pass1.program, "hdrMap"), 3);
+		glUniform1i(glGetUniformLocation(pass1.m_shaderProgram, "hdrMap"), 3);
 
 		// 绘制
 		pass1.draw();
-		pass2.draw(pass1.colorAttachments);
-		pass3.draw(pass2.colorAttachments);
+		pass2.draw(pass1.m_colorAttachments);
+		pass3.draw(pass2.m_colorAttachments);
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
@@ -315,18 +268,18 @@ void processInput(GLFWwindow* window)
 		glfwSetWindowShouldClose(window, true);
 
 	if (glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS)
-		camera.ProcessKeyboard(FORWARD, deltaTime);
+		mainCamera.ProcessKeyboard(FORWARD, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS)
-		camera.ProcessKeyboard(BACKWARD, deltaTime);
+		mainCamera.ProcessKeyboard(BACKWARD, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS)
-		camera.ProcessKeyboard(LEFT, deltaTime);
+		mainCamera.ProcessKeyboard(LEFT, deltaTime);
 	if (glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS)
-		camera.ProcessKeyboard(RIGHT, deltaTime);
+		mainCamera.ProcessKeyboard(RIGHT, deltaTime);
 }
 
-void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+void framebuffer_size_callback(GLFWwindow* window, int m_width, int m_height)
 {
-	glViewport(0, 0, width, height);
+	glViewport(0, 0, m_width, m_height);
 }
 
 void mouse_callback(GLFWwindow* window, double xpos, double ypos)
@@ -344,10 +297,10 @@ void mouse_callback(GLFWwindow* window, double xpos, double ypos)
 	lastX = xpos;
 	lastY = ypos;
 
-	camera.ProcessMouseMovement(xoffset, yoffset);
+	mainCamera.ProcessMouseMovement(xoffset, yoffset);
 }
 
 void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
 {
-	camera.ProcessMouseScroll(yoffset);
+	mainCamera.ProcessMouseScroll(yoffset);
 }

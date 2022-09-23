@@ -1,4 +1,4 @@
-/***********************************************************************************
+﻿/***********************************************************************************
 	Created:	17:9:2002
 	FileName: 	hdrloader.cpp
 	Author:		Igor Kravtchenko
@@ -69,8 +69,8 @@ bool HDRLoader::load(const char* fileName, HDRLoaderResult& res)
 		return false;
 	}
 
-	res.width = w;
-	res.height = h;
+	res.m_width = w;
+	res.m_height = h;
 
 	float* cols = new float[w * h * 3];
 	res.cols = cols;

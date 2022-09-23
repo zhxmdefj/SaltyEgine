@@ -18,10 +18,10 @@ public:
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		data = stbi_load(filePath, &width, &height, &nrChannels, 0);
+		data = stbi_load(filePath, &m_width, &m_height, &nrChannels, 0);
 		if (data)
 		{
-			glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+			glTexImage2D(GL_TEXTURE_2D, 0, format, m_width, m_height, 0, format, GL_UNSIGNED_BYTE, data);
 			glGenerateMipmap(GL_TEXTURE_2D);
 		}
 		else
@@ -32,8 +32,8 @@ public:
 	}
 
 private:
-	int width = -1;
-	int height = -1;
+	int m_width = -1;
+	int m_height = -1;
 	int nrChannels = -1;
 	unsigned char* data = nullptr;
 };

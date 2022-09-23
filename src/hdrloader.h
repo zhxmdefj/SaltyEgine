@@ -1,4 +1,4 @@
-/***********************************************************************************
+﻿/***********************************************************************************
 	Created:	17:9:2002
 	FileName: 	hdrloader.h
 	Author:		Igor Kravtchenko
@@ -8,7 +8,7 @@
 
 class HDRLoaderResult {
 public:
-	int width, height;
+	int m_width, m_height;
 	// each pixel takes 3 float32, each component can be of any value...
 	float* cols;
 };
